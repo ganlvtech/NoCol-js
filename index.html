@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>NoCol-js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.0.4/browser/pixi.js" integrity="sha512-FC+B7IsEcnbzMzD5jbNblIYOGfQU59FlO3TXXAptESpHTDq/7xjG5F1vdlmbitePkdTlDMB7M6bbLbFGDUlBeg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.js" integrity="sha512-u+vtyZDzyd0zgAEffKfoNx2BnCahAOBBYvzGu6vma1B18zQ6lEGF3F6dAFvqaxDoIU/GZRxcXV5oq23OIrkQwg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+    <div id="counter" style="position: absolute; left: 0; top: 0; z-index: 1; background: #fff; user-select: none">Current: 0</div>
+    <script>
+    let ACCELERATION_FACTOR = 0.000002;
+    let MAX_INITIAL_VELOCITY = 0.5;
+
+    /**
+     * @param {PIXI.Container} container
+     * @param {number} radius
+     * @param {number} color
+     */
+    function Circle(container, radius, color) {
+      const circle = new PIXI.Graphics();
+      circle.beginFill(color);
+      circle.drawCircle(0, 0, radius);
+      circle.endFill();
+      circle.x = 0;
+      circle.y = 0;
+      container.addChild(circle);
+      this.container = container;
+      this.radius = radius;
+      this.circle = circle;
+      this.v = { x: 0, y: 0 };
+      return this;
+    }
+
+    /**
+     * @param {number} dt milliseconds
+     */
+    Circle.prototype.tick = function(dt) {
+      this.circle.x += this.v.x * dt;
+      this.circle.y += this.v.y * dt;
+      const a = {
+        x: -this.circle.x * ACCELERATION_FACTOR,
+        y: -this.circle.y * ACCELERATION_FACTOR,
+      };
+      this.v.x += a.x * dt;
+      this.v.y += a.y * dt;
+    };
+    /**
+     *
+     * @param {Circle} circle
+     * @return {boolean}
+     */
+    Circle.prototype.isCollideWith = function(circle) {
+      return Math.hypot(this.circle.x - circle.circle.x, this.circle.y - circle.circle.y) <= (this.radius + circle.radius);
+    };
+    /**
+     * @param {number} color
+     */
+    Circle.prototype.setColor = function(color) {
+      this.circle.beginFill(color);
+      this.circle.drawCircle(0, 0, this.radius);
+      this.circle.endFill();
+    };
+    Circle.prototype.destory = function() {
+      this.container.removeChild(this.circle);
+    };
+
+    function init() {
+      const elCounter = document.querySelector('#counter');
+      const app = new PIXI.Application({ width: 256, height: 256 });
+      const canvas = app.view;
+      canvas.style.position = 'absolute';
+      canvas.style.left = '0';
+      canvas.style.top = '0';
+      canvas.style.margin = '0';
+      const container = new PIXI.Container();
+      app.stage.addChild(container);
+
+      document.body.appendChild(canvas);
+      app.renderer.autoResize = true;
+      const onWindowResize = () => {
+        app.renderer.resize(window.innerWidth, window.innerHeight);
+        container.x = app.renderer.width / 2;
+        container.y = app.renderer.height / 2;
+      };
+      window.addEventListener('resize', onWindowResize);
+      onWindowResize();
+
+      const addCircle = (x, y, vx, vy) => {
+        const circle = new Circle(container, Math.round(5 + Math.random() * 10), 0x6699cc);
+        circle.circle.x = x;
+        circle.circle.y = y;
+        circle.v.x = vx;
+        circle.v.y = vy;
+        circles.push(circle);
+      };
+
+      let circles = [];
+      for (let i = 0; i < 10; i++) {
+        const x = Math.round((Math.random() - 0.5) * 0.7 * app.renderer.width);
+        const y = Math.round((Math.random() - 0.5) * 0.7 * app.renderer.height);
+        const vx = -Math.sign(x) * Math.random() * MAX_INITIAL_VELOCITY;
+        const vy = -Math.sign(y) * Math.random() * MAX_INITIAL_VELOCITY;
+        addCircle(x, y, vx, vy);
+      }
+
+      canvas.addEventListener('click', (e) => {
+        const x = e.clientX - app.renderer.width / 2;
+        const y = e.clientY - app.renderer.height / 2;
+        const vx = -Math.sign(x) * Math.random() * MAX_INITIAL_VELOCITY;
+        const vy = -Math.sign(y) * Math.random() * MAX_INITIAL_VELOCITY;
+        addCircle(x, y, vx, vy);
+      });
+
+      let t0 = Date.now();
+      const frame = () => {
+        const t1 = Date.now();
+        const dt = t1 - t0;
+        if (dt < 100) {
+          // Move
+          circles.forEach((circle) => {
+            circle.tick(dt);
+          });
+          // Remove collisions
+          const circles2 = [];
+          circles.forEach((circle) => {
+            if (circles2.some((circle2) => circle2.isCollideWith(circle))) {
+              circle.destory();
+            } else {
+              circles2.push(circle);
+            }
+          });
+          circles = circles2;
+          elCounter.textContent = `Current: ${circles.length}`;
+        }
+        t0 = t1;
+        requestAnimationFrame(frame);
+      };
+      frame();
+    }
+
+    init();
+    </script>
+</body>
+</html>
